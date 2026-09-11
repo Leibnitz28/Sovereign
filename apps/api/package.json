@@ -1,0 +1,34 @@
+{
+  "name": "@sovereign/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "fastify": "^5.1.0",
+    "@fastify/cors": "^10.0.0",
+    "@sovereign/domain": "workspace:*",
+    "@sovereign/schemas": "workspace:*",
+    "@sovereign/database": "workspace:*",
+    "@sovereign/policy-engine": "workspace:*",
+    "@sovereign/intent": "workspace:*",
+    "@sovereign/reputation": "workspace:*",
+    "@sovereign/keeperhub": "workspace:*",
+    "@sovereign/daydreams": "workspace:*",
+    "@sovereign/audit": "workspace:*",
+    "pino": "^9.5.0",
+    "zod": "^3.23.0",
+    "ioredis": "^5.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "tsx": "^4.19.0",
+    "@types/node": "^20.17.0"
+  }
+}

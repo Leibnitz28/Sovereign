@@ -1,0 +1,25 @@
+{
+  "name": "@sovereign/tests",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@sovereign/domain": "workspace:*",
+    "@sovereign/schemas": "workspace:*",
+    "@sovereign/policy-engine": "workspace:*",
+    "@sovereign/intent": "workspace:*",
+    "@sovereign/reputation": "workspace:*",
+    "@sovereign/audit": "workspace:*",
+    "@sovereign/keeperhub": "workspace:*",
+    "@sovereign/daydreams": "workspace:*",
+    "fast-check": "^3.23.2"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.0"
+  }
+}
