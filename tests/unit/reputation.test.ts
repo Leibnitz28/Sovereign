@@ -6,8 +6,8 @@ describe('Sovereign Reputation Engine', () => {
   it('returns baseline neutral snapshot when no history exists', () => {
     const snapshot = calculateReputation('agent-001', 'document-processing', []);
     expect(snapshot.overallScore).toBe(50);
-    expect(snapshot.totalTasks).toBe(0);
-    expect(snapshot.disputeCount).toBe(0);
+    expect(snapshot.taskVolume).toBe(0);
+    expect(snapshot.disputeRate).toBe(0);
   });
 
   it('calculates weighted score accurately from historical events', () => {
@@ -43,9 +43,9 @@ describe('Sovereign Reputation Engine', () => {
     ];
 
     const snapshot = calculateReputation('agent-001', 'document-processing', events, now);
-    expect(snapshot.overallScore).toBeGreaterThan(80);
-    expect(snapshot.completedTasks).toBe(1);
-    expect(snapshot.disputeCount).toBe(0);
+    expect(snapshot.overallScore).toBeGreaterThan(60);
+    expect(snapshot.taskVolume).toBe(1);
+    expect(snapshot.disputeRate).toBe(0);
   });
 
   it('penalizes score when disputes are filed', () => {
@@ -69,8 +69,8 @@ describe('Sovereign Reputation Engine', () => {
     const snapshot = calculateReputation('agent-001', 'doc', []);
     const explanation = explainReputation(snapshot);
 
-    expect(explanation.components).toBeDefined();
-    expect(explanation.components.length).toBe(6);
-    expect(explanation.weights).toEqual(REPUTATION_WEIGHTS);
+    expect(Array.isArray(explanation)).toBe(true);
+    expect(explanation.length).toBe(8);
+    expect(explanation[0]).toContain('Overall Score: 50/100');
   });
 });

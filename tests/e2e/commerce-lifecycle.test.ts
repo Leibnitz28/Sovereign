@@ -22,7 +22,19 @@ describe('E2E Autonomous Commerce Lifecycle', () => {
     const mockTasksRepo: any = {
       findById: vi.fn(async (id: string) => store.tasks.get(id) || null),
       updateState: vi.fn(async (id: string, state: string, updates: any) => {
-        const task = { ...(store.tasks.get(id) || {}), state, ...updates };
+        const workerAgentId = updates.worker_agent_id ?? updates.workerAgentId ?? store.tasks.get(id)?.workerAgentId ?? null;
+        const intentId = updates.intent_id ?? updates.intentId ?? store.tasks.get(id)?.intentId ?? null;
+        const escrowId = updates.escrow_id ?? updates.escrowId ?? store.tasks.get(id)?.escrowId ?? null;
+        const verificationId = updates.verification_id ?? updates.verificationId ?? store.tasks.get(id)?.verificationId ?? null;
+        const task = {
+          ...(store.tasks.get(id) || {}),
+          state,
+          ...updates,
+          workerAgentId,
+          intentId,
+          escrowId,
+          verificationId,
+        };
         store.tasks.set(id, task);
         return task;
       }),
@@ -41,32 +53,38 @@ describe('E2E Autonomous Commerce Lifecycle', () => {
       }),
     };
 
+    const samplePolicy = {
+      policyId: 'pol-001',
+      agentId: 'buyer-001',
+      version: 1,
+      maxSinglePayment: 10_000_000n,
+      maxCumulativeSpend: 50_000_000n,
+      currentCumulativeSpend: 0n,
+      allowedRecipients: [],
+      allowedCurrencies: ['USDC'],
+      allowedNetworks: ['base-sepolia'],
+      requiredCapabilities: ['document-processing'],
+      minimumReputationScore: 90,
+      maxExecutionCount: 5,
+      currentExecutionCount: 0,
+      requireOutcomeVerification: true,
+      expiresAt: new Date(Date.now() + 86400000),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
     const mockPoliciesRepo: any = {
-      findActiveForAgent: vi.fn(async () => ({
-        policyId: 'pol-001',
-        agentId: 'buyer-001',
-        version: 1,
-        maxSinglePayment: 10_000_000n,
-        maxCumulativeSpend: 50_000_000n,
-        allowedRecipients: [],
-        allowedCurrencies: ['USDC'],
-        allowedNetworks: ['base-sepolia'],
-        requiredCapabilities: ['document-processing'],
-        minimumWorkerReputation: 90,
-        requiresVerification: true,
-        maxExecutionsPerTask: 1,
-        settlementTimeoutSeconds: 3600,
-        active: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })),
+      findById: vi.fn(async () => samplePolicy),
+      findActiveForAgent: vi.fn(async () => samplePolicy),
       getCumulativeSpend: vi.fn(async () => 0n),
+      incrementCumulativeSpend: vi.fn(async () => {}),
     };
 
     const mockEscrowsRepo: any = {
       create: vi.fn(async (escrow: any) => {
-        store.escrows.set(escrow.escrowId, escrow);
-        return escrow;
+        const withId = { escrowId: 'esc-001', ...escrow };
+        store.escrows.set(withId.escrowId, withId);
+        return withId;
       }),
       findByTaskId: vi.fn(async (taskId: string) => {
         for (const e of store.escrows.values()) {
@@ -86,6 +104,7 @@ describe('E2E Autonomous Commerce Lifecycle', () => {
         store.settlements.set(s.settlementId, s);
         return s;
       }),
+      existsForTask: vi.fn(async () => false),
     };
 
     const mockAuditRepo: any = {
@@ -106,6 +125,7 @@ describe('E2E Autonomous Commerce Lifecycle', () => {
         completedTasks: 118,
         disputeCount: 0,
       })),
+      createEvent: vi.fn(async () => {}),
       recordEvent: vi.fn(async () => {}),
       getEventsForAgent: vi.fn(async () => []),
       saveSnapshot: vi.fn(async () => {}),
@@ -121,8 +141,9 @@ describe('E2E Autonomous Commerce Lifecycle', () => {
 
     const mockVerificationsRepo: any = {
       create: vi.fn(async (v: any) => {
-        store.verifications.set(v.verificationId, v);
-        return v;
+        const withId = { verificationId: 'ver-001', ...v };
+        store.verifications.set(withId.verificationId, withId);
+        return withId;
       }),
       findByTaskId: vi.fn(async (taskId: string) => {
         for (const v of store.verifications.values()) {
@@ -133,9 +154,16 @@ describe('E2E Autonomous Commerce Lifecycle', () => {
     };
 
     const mockCapabilitiesRepo: any = {
+      findByAgentId: vi.fn(async () => [
+        {
+          capability: 'document-processing',
+          price: 8_000_000n,
+          currency: 'USDC',
+        },
+      ]),
       findByAgentAndCapability: vi.fn(async () => ({
         capability: 'document-processing',
-        price: 8_000_000,
+        price: 8_000_000n,
         currency: 'USDC',
       })),
     };
@@ -170,6 +198,8 @@ describe('E2E Autonomous Commerce Lifecycle', () => {
       currency: 'USDC',
       network: 'base-sepolia',
       minimumReputation: 90,
+      policyId: 'pol-001',
+      deadline: new Date(Date.now() + 86400000),
       metadata: {},
       createdAt: new Date(),
     });
@@ -183,26 +213,28 @@ describe('E2E Autonomous Commerce Lifecycle', () => {
     const selectedTask = await orchestrator.selectWorker(taskId, selectedWorker.agentId);
     expect(selectedTask.workerAgentId).toBe(selectedWorker.agentId);
 
-    // 3. Commit intent & escrow
-    const intentRes = await orchestrator.commitIntentAndEscrow(taskId);
-    expect(intentRes.intent.intentHash).toBeDefined();
+    // 3. Evaluate Policy
+    const decision = await orchestrator.evaluateTaskPolicy(taskId);
+    expect(decision.approved).toBe(true);
 
-    // 4. Submit result
-    const submission = await orchestrator.submitResult(
-      taskId,
-      selectedWorker.agentId,
-      { output: 'Analysis complete', confidence: 0.99 },
-      'proof-0x123'
-    );
-    expect(submission.state).toBe('RESULT_SUBMITTED');
+    // 4. Commit intent
+    const intent = await orchestrator.commitIntent(taskId);
+    expect(intent.intentHash).toBeDefined();
 
-    // 5. Verify deliverable
-    const verified = await orchestrator.verifyTask(taskId);
-    expect(verified.state).toBe('VERIFIED');
+    // 5. Create Escrow
+    await orchestrator.createEscrow(taskId);
 
-    // 6. Settle via KeeperHub
-    const settled = await orchestrator.settleTask(taskId);
-    expect(settled.state).toBe('COMPLETED');
+    // 6. Submit result
+    await orchestrator.submitResult(taskId, JSON.stringify({ output: 'Analysis complete' }));
+
+    // 7. Verify result
+    const verified = await orchestrator.verifyResult(taskId);
+    expect(verified.status).toBe('passed');
+
+    // 8. Settle via KeeperHub
+    const { settlement, execution } = await orchestrator.settle(taskId);
+    expect(settlement.transactionHash).toBeDefined();
+    expect(execution.status).toBe('completed');
     expect(store.audit.length).toBeGreaterThanOrEqual(6);
   });
 });

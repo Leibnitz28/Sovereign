@@ -9,15 +9,15 @@ describe('Sovereign Policy Engine', () => {
     version: 1,
     maxSinglePayment: 10_000_000n, // $10 USDC
     maxCumulativeSpend: 50_000_000n, // $50 USDC
+    currentCumulativeSpend: 0n,
     allowedRecipients: ['0x2222222222222222222222222222222222222222'],
-    allowedCurrencies: ['USDC'],
     allowedNetworks: ['base-sepolia'],
     requiredCapabilities: ['document-processing'],
-    minimumWorkerReputation: 90,
-    requiresVerification: true,
-    maxExecutionsPerTask: 1,
-    settlementTimeoutSeconds: 3600,
-    active: true,
+    minimumReputationScore: 90,
+    maxExecutionCount: 5,
+    currentExecutionCount: 0,
+    requireOutcomeVerification: true,
+    expiresAt: new Date(Date.now() + 86400000),
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -109,7 +109,7 @@ describe('Sovereign Policy Engine', () => {
 
     const decision = evaluatePolicy(validIntent, samplePolicy, context);
     expect(decision.approved).toBe(false);
-    expect(decision.reasons.some((r) => r.includes('Worker reputation score 82 is below minimum requirement 90'))).toBe(true);
+    expect(decision.reasons.some((r) => r.includes('is below minimum 90'))).toBe(true);
   });
 
   it('correctly evaluates wouldAmountPass helper for UI validation', () => {

@@ -49,6 +49,6 @@ describe('Sovereign Hash-Chained Audit Trail', () => {
     ];
     const verifyRes = verifyAuditChain(brokenChain);
     expect(verifyRes.valid).toBe(false);
-    expect(verifyRes.brokenAtIndex).toBe(1);
+    expect(verifyRes.brokenAt).toBe(1);
   });
 });
